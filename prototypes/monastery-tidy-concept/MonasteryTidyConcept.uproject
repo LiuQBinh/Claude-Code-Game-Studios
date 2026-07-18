@@ -1,0 +1,17 @@
+{
+	"FileVersion": 3,
+	"EngineAssociation": "5.7",
+	"Category": "Prototype",
+	"Description": "PROTOTYPE - Monastery Tidy concept validation. NOT FOR PRODUCTION.",
+	"Modules": [
+		{
+			"Name": "MonasteryTidyConcept",
+			"Type": "Runtime",
+			"LoadingPhase": "Default",
+			"AdditionalDependencies": [
+				"Engine",
+				"UMG"
+			]
+		}
+	]
+}

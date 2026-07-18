@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Monastery Tidy — Hub + Mini-game Prototype</title>
+<style>
+/* PROTOTYPE - NOT FOR PRODUCTION
+   Question: Does walk cutaway → enter room → tidy → book feel like the game we want?
+   Date: 2026-07-18 */
+:root {
+  --terracotta: #C1440E;
+  --saffron: #E8A827;
+  --cream: #F0E6D3;
+  --forest: #3D6B4F;
+  --brown: #4A3728;
+  --gold: #FFD700;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  height: 100%; overflow: hidden;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  color: var(--brown);
+  background: #d4c4a8;
+  user-select: none;
+}
+#topbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 16px;
+  background: rgba(240,230,211,.92);
+  border-bottom: 2px solid var(--brown);
+  font-size: 13px;
+}
+#books { display: flex; gap: 8px; }
+.book-slot {
+  width: 28px; height: 36px; border: 2px solid var(--brown);
+  border-radius: 3px; background: rgba(74,55,40,.15);
+}
+.book-slot.got { background: var(--gold); }
+#hint-bar { opacity: .75; }
+
+/* —— HUB —— */
+#hub {
+  position: absolute; inset: 0; top: 48px;
+  background: linear-gradient(180deg, #cfe0ea 0%, #e8dcc8 40%, #c9b896 100%);
+}
+.cutaway {
+  position: absolute; left: 5%; right: 5%; top: 12%; bottom: 18%;
+  border: 3px solid var(--brown);
+  background:
+    linear-gradient(180deg, transparent 0 33%, rgba(193,68,14,.12) 33% 34%, transparent 34% 66%, rgba(193,68,14,.12) 66% 67%, transparent 67%),
+    linear-gradient(90deg, var(--cream) 0%, #e5d5b8 100%);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.floor {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 18%;
+  background: var(--brown); opacity: .35;
+}
+.ground {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 14%;
+  background: #8a7355;
+}
+.door {
+  position: absolute; bottom: 18%; width: 70px; height: 110px;
+  border: 3px solid var(--brown); border-radius: 6px 6px 0 0;
+  background: rgba(74,55,40,.25);
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+  padding-bottom: 8px; font-size: 11px; font-weight: 700;
+  cursor: pointer;
+}
+.door.calm {
+  background: rgba(240,230,211,.85);
+  box-shadow: inset 0 0 0 3px rgba(255,215,0,.5);
+}
+.door.near { outline: 3px solid var(--gold); }
+.door .tag { font-size: 10px; font-weight: 600; opacity: .8; margin-top: 4px; }
+#player {
+  position: absolute; bottom: 18%; width: 36px; height: 54px;
+  background: var(--saffron);
+  border: 2px solid var(--brown);
+  border-radius: 8px 8px 4px 4px;
+  z-index: 5;
+  transition: left .05s linear;
+}
+#player::after {
+  content: "";
+  position: absolute; top: 8px; left: 8px; right: 8px; height: 14px;
+  background: var(--cream); border-radius: 4px;
+}
+#interact-prompt {
+  position: absolute; bottom: calc(18% + 120px); transform: translateX(-50%);
+  background: var(--brown); color: var(--cream);
+  padding: 4px 10px; border-radius: 4px; font-size: 12px;
+  display: none; white-space: nowrap; z-index: 6;
+}
+#win-banner {
+  display: none; position: absolute; inset: 0; z-index: 40;
+  background: rgba(74,55,40,.45);
+  place-items: center;
+}
+#win-banner.show { display: grid; }
+#win-banner .card {
+  background: var(--cream); border: 3px solid var(--brown);
+  padding: 24px 32px; border-radius: 8px; text-align: center;
+  box-shadow: 0 16px 40px rgba(0,0,0,.25);
+}
+#win-banner .card h2 { color: var(--terracotta); margin-bottom: 8px; }
+
+/* —— TIDY —— */
+#tidy {
+  display: none; position: absolute; inset: 0; top: 48px;
+  background: linear-gradient(180deg, #e8dcc8 0%, var(--cream) 55%, #d9cbb3 100%);
+}
+#tidy.active { display: block; }
+#meter-wrap { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); width: min(400px, 90vw); text-align: center; z-index: 10; }
+#meter-track { height: 20px; background: rgba(74,55,40,.85); border-radius: 4px; overflow: hidden; border: 2px solid var(--brown); }
+#meter-fill { height: 100%; width: 0%; background: var(--gold); transition: width .2s; }
+#meter-label { margin-top: 6px; font-size: 13px; }
+#tidy-stage { position: absolute; inset: 0; }
+.shelf { position: absolute; left: 10%; right: 10%; bottom: 28%; height: 12px; background: var(--brown); opacity: .5; }
+.home, .prop {
+  position: absolute; width: 56px; height: 56px; border-radius: 6px;
+  display: grid; place-items: center; font-size: 11px; font-weight: 600;
+}
+.home {
+  border: 2px dashed rgba(74,55,40,.45);
+  background: rgba(240,230,211,.35);
+  color: rgba(74,55,40,.5);
+}
+.home.hot { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(255,215,0,.35); }
+.prop {
+  cursor: grab; border: 2px solid var(--brown);
+  box-shadow: 2px 3px 0 rgba(74,55,40,.25); z-index: 5; touch-action: none;
+}
+.prop.dragging { cursor: grabbing; z-index: 10; transform: scale(1.08); }
+.prop.home { outline: 2px solid rgba(255,215,0,.5); }
+#reveal {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  pointer-events: none; opacity: 0; transition: opacity 1.2s ease;
+  background: radial-gradient(circle at 50% 45%, rgba(255,215,0,.2), transparent 55%);
+  z-index: 15;
+}
+#reveal.show { opacity: 1; }
+.sutra-book {
+  width: 88px; height: 120px; background: var(--gold);
+  border: 3px solid var(--brown); border-radius: 4px;
+  display: grid; place-items: center; text-align: center;
+  font-weight: 700; font-size: 12px; line-height: 1.3;
+}
+#tidy-actions {
+  position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+  z-index: 20; display: none; gap: 8px;
+}
+#tidy-actions.show { display: flex; }
+button {
+  font: inherit; padding: 8px 16px; border: 2px solid var(--brown);
+  border-radius: 6px; background: var(--saffron); color: var(--brown);
+  font-weight: 700; cursor: pointer;
+}
+button.secondary { background: var(--cream); }
+</style>
+</head>
+<body>
+<!-- PROTOTYPE - NOT FOR PRODUCTION -->
+
+<div id="topbar">
+  <div><strong>Am cắt mặt 2.5D</strong> — A/D hoặc ←→ đi · E / Space vào phòng</div>
+  <div id="books">
+    <div class="book-slot" id="b0" title="Kinh 1"></div>
+    <div class="book-slot" id="b1" title="Kinh 2"></div>
+    <div class="book-slot" id="b2" title="Kinh 3"></div>
+  </div>
+  <div id="hint-bar">Tam Tạng: <span id="book-count">0</span>/3</div>
+</div>
+
+<div id="hub">
+  <div class="cutaway" id="cutaway">
+    <div class="floor"></div>
+    <div class="door" data-room="0" style="left:12%"><span>Phòng thờ</span><span class="tag">bề bộn</span></div>
+    <div class="door" data-room="1" style="left:42%"><span>Góc ngủ</span><span class="tag">bề bộn</span></div>
+    <div class="door" data-room="2" style="left:72%"><span>Sân nhỏ</span><span class="tag">bề bộn</span></div>
+    <div id="player" style="left:20%"></div>
+    <div id="interact-prompt">E — vào dọn phòng</div>
+  </div>
+  <div class="ground"></div>
+  <div id="win-banner"><div class="card"><h2>Đủ 3 cuốn Tam Tạng</h2><p>Am đã thanh tịnh — prototype demo xong.</p></div></div>
+</div>
+
+<div id="tidy">
+  <div id="meter-wrap">
+    <div id="meter-track"><div id="meter-fill"></div></div>
+    <div id="meter-label">Thanh tịnh — 0 / 4</div>
+  </div>
+  <div id="tidy-stage"><div class="shelf"></div></div>
+  <div id="reveal"><div class="sutra-book">TAM TẠNG<br/>✦</div></div>
+  <div id="tidy-actions">
+    <button id="btn-return" class="secondary">Quay lại am</button>
+  </div>
+</div>
+
+<script>
+/* PROTOTYPE - NOT FOR PRODUCTION
+   Question: walk cutaway → tidy room → book — does this feel like the game?
+   Date: 2026-07-18 */
+
+const ROOMS = [
+  { name: "Phòng thờ", labels: ["Áo", "Chuông", "Cuộn", "Bát"], colors: ["#E8A827","#C1440E","#3D6B4F","#F0E6D3"] },
+  { name: "Góc ngủ", labels: ["Gối", "Chăn", "Đèn", "Giỏ"], colors: ["#3D6B4F","#E8A827","#4A3728","#C1440E"] },
+  { name: "Sân nhỏ", labels: ["Chổi", "Xô", "Lá", "Ghế"], colors: ["#C1440E","#3D6B4F","#E8A827","#4A3728"] },
+];
+
+const player = document.getElementById("player");
+const cutaway = document.getElementById("cutaway");
+const prompt = document.getElementById("interact-prompt");
+const doors = [...document.querySelectorAll(".door")];
+const hub = document.getElementById("hub");
+const tidy = document.getElementById("tidy");
+const fill = document.getElementById("meter-fill");
+const meterLabel = document.getElementById("meter-label");
+const tidyStage = document.getElementById("tidy-stage");
+const reveal = document.getElementById("reveal");
+const tidyActions = document.getElementById("tidy-actions");
+const bookCountEl = document.getElementById("book-count");
+
+let mode = "hub"; // hub | tidy
+let playerX = 0.22; // 0..1 of cutaway width
+let keys = {};
+let nearRoom = null;
+let roomDone = [false, false, false];
+let books = 0;
+let currentRoom = null;
+let tidyProps = [];
+let tidyHomes = [];
+
+function updateBooksUI() {
+  bookCountEl.textContent = books;
+  for (let i = 0; i < 3; i++) {
+    document.getElementById("b" + i).classList.toggle("got", roomDone[i]);
+  }
+  doors.forEach((d, i) => {
+    if (roomDone[i]) {
+      d.classList.add("calm");
+      d.querySelector(".tag").textContent = "thanh tịnh";
+    }
+  });
+  if (books >= 3) document.getElementById("win-banner").classList.add("show");
+}
+
+function hubFrame() {
+  if (mode !== "hub") return;
+  const speed = 0.007;
+  if (keys["ArrowLeft"] || keys["a"] || keys["A"]) playerX -= speed;
+  if (keys["ArrowRight"] || keys["d"] || keys["D"]) playerX += speed;
+  playerX = Math.max(0.04, Math.min(0.92, playerX));
+  const W = cutaway.clientWidth;
+  player.style.left = (playerX * W - 18) + "px";
+
+  const px = playerX * W;
+  nearRoom = null;
+  doors.forEach((d) => {
+    const dx = d.offsetLeft + d.offsetWidth / 2;
+    const dist = Math.abs(px - dx);
+    const near = dist < 55 && !roomDone[+d.dataset.room];
+    d.classList.toggle("near", near);
+    if (near) nearRoom = +d.dataset.room;
+  });
+
+  if (nearRoom !== null) {
+    prompt.style.display = "block";
+    prompt.style.left = (doors[nearRoom].offsetLeft + 35) + "px";
+  } else {
+    prompt.style.display = "none";
+  }
+  requestAnimationFrame(hubFrame);
+}
+
+function tryEnter() {
+  if (mode !== "hub" || nearRoom === null) return;
+  startTidy(nearRoom);
+}
+
+function startTidy(roomId) {
+  currentRoom = roomId;
+  mode = "tidy";
+  hub.style.display = "none";
+  tidy.classList.add("active");
+  reveal.classList.remove("show");
+  tidyActions.classList.remove("show");
+  // clear old props/homes (keep shelf)
+  [...tidyStage.querySelectorAll(".prop, .home")].forEach(n => n.remove());
+  tidyProps = [];
+  tidyHomes = [];
+
+  const room = ROOMS[roomId];
+  const N = room.labels.length;
+  const W = tidyStage.clientWidth || window.innerWidth;
+  const H = tidyStage.clientHeight || (window.innerHeight - 48);
+  const y = H * 0.68;
+  const span = W * 0.65;
+  const startX = (W - span) / 2;
+
+  for (let i = 0; i < N; i++) {
+    const home = document.createElement("div");
+    home.className = "home";
+    home.textContent = room.labels[i];
+    const hx = startX + (N === 1 ? span / 2 : (span / (N - 1)) * i);
+    home.style.left = (hx - 28) + "px";
+    home.style.top = (y - 28) + "px";
+    tidyStage.appendChild(home);
+    tidyHomes.push({ el: home, id: i, x: hx, y });
+  }
+
+  const messy = [[0.2,0.4],[0.55,0.36],[0.38,0.52],[0.7,0.45]];
+  for (let i = 0; i < N; i++) {
+    const el = document.createElement("div");
+    el.className = "prop";
+    el.textContent = room.labels[i];
+    el.style.background = room.colors[i];
+    el.style.color = room.colors[i] === "#F0E6D3" ? "#4A3728" : "#F0E6D3";
+    const mx = messy[i][0] * W, my = messy[i][1] * H;
+    el.style.left = (mx - 28) + "px";
+    el.style.top = (my - 28) + "px";
+    tidyStage.appendChild(el);
+    tidyProps.push({ el, id: i, home: false });
+    bindDrag(el, i);
+  }
+  updateMeter();
+}
+
+function updateMeter() {
+  const n = tidyProps.length || 1;
+  const homeCount = tidyProps.filter(p => p.home).length;
+  fill.style.width = ((homeCount / n) * 100) + "%";
+  meterLabel.textContent = `Thanh tịnh — ${homeCount} / ${n} · ${ROOMS[currentRoom].name}`;
+  if (homeCount === n) {
+    reveal.classList.add("show");
+    tidyActions.classList.add("show");
+    if (!roomDone[currentRoom]) {
+      roomDone[currentRoom] = true;
+      books = roomDone.filter(Boolean).length;
+      updateBooksUI();
+    }
+  }
+}
+
+function centerOf(el) {
+  const r = el.getBoundingClientRect();
+  const sr = tidyStage.getBoundingClientRect();
+  return { x: r.left - sr.left + r.width / 2, y: r.top - sr.top + r.height / 2 };
+}
+
+function bindDrag(el, id) {
+  let dragging = false, ox = 0, oy = 0;
+  el.addEventListener("pointerdown", e => {
+    el.setPointerCapture(e.pointerId);
+    dragging = true;
+    el.classList.add("dragging");
+    const r = el.getBoundingClientRect();
+    ox = e.clientX - r.left; oy = e.clientY - r.top;
+    if (tidyProps[id].home) {
+      tidyProps[id].home = false;
+      el.classList.remove("home");
+      updateMeter();
+    }
+  });
+  el.addEventListener("pointermove", e => {
+    if (!dragging) return;
+    const sr = tidyStage.getBoundingClientRect();
+    let left = e.clientX - sr.left - ox;
+    let top = e.clientY - sr.top - oy;
+    left = Math.max(0, Math.min(sr.width - 56, left));
+    top = Math.max(0, Math.min(sr.height - 56, top));
+    el.style.left = left + "px";
+    el.style.top = top + "px";
+    const c = centerOf(el);
+    tidyHomes.forEach(h => h.el.classList.toggle("hot", h.id === id && Math.hypot(c.x - h.x, c.y - h.y) < 64));
+  });
+  el.addEventListener("pointerup", () => {
+    if (!dragging) return;
+    dragging = false;
+    el.classList.remove("dragging");
+    tidyHomes.forEach(h => h.el.classList.remove("hot"));
+    const c = centerOf(el);
+    const h = tidyHomes.find(h => h.id === id && Math.hypot(c.x - h.x, c.y - h.y) < 64);
+    if (h) {
+      el.style.left = (h.x - 28) + "px";
+      el.style.top = (h.y - 28) + "px";
+      tidyProps[id].home = true;
+      el.classList.add("home");
+      updateMeter();
+    }
+  });
+}
+
+function returnToHub() {
+  mode = "hub";
+  tidy.classList.remove("active");
+  hub.style.display = "block";
+  requestAnimationFrame(hubFrame);
+}
+
+document.getElementById("btn-return").addEventListener("click", returnToHub);
+
+window.addEventListener("keydown", e => {
+  keys[e.key] = true;
+  if (e.key === "e" || e.key === "E" || e.key === " ") {
+    e.preventDefault();
+    tryEnter();
+  }
+});
+window.addEventListener("keyup", e => { keys[e.key] = false; });
+
+doors.forEach(d => d.addEventListener("click", () => {
+  const id = +d.dataset.room;
+  if (roomDone[id]) return;
+  // snap player near door then enter
+  const W = cutaway.clientWidth;
+  playerX = (d.offsetLeft + d.offsetWidth / 2) / W;
+  nearRoom = id;
+  tryEnter();
+}));
+
+updateBooksUI();
+requestAnimationFrame(hubFrame);
+</script>
+</body>
+</html>
