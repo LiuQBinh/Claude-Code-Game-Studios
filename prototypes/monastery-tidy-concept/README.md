@@ -21,7 +21,23 @@ Players voluntarily tidy **≥4 props in ~3 minutes** without quitting, and name
 - LMB drag → release near home → snap
 - Purity meter (`thanh tinh`) + soft gold “TAM TANG” reveal at 100%
 
-## How to run
+## HTML prototypes (Next.js)
+
+Static HTML builds live in `public/static/` and are served by a small Next.js app.
+
+```bash
+cd prototypes/monastery-tidy-concept
+npm install
+npm run dev
+```
+
+- Hub: http://localhost:3000/static/prototype-hub.html  
+- Tidy mini-game: http://localhost:3000/static/prototype.html  
+- Index: http://localhost:3000/
+
+Deploy from this folder with Vercel (`npx vercel --prod`).
+
+## How to run (Unreal)
 
 1. Install **Unreal Engine 5.7.x** (you have 5.7.4).
 2. Double-click `MonasteryTidyConcept.uproject`  

@@ -1,0 +1,26 @@
+:root {
+  --terracotta: #c1440e;
+  --saffron: #e8a827;
+  --cream: #f0e6d3;
+  --brown: #4a3728;
+  --gold: #ffd700;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  min-height: 100%;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  color: var(--brown);
+  background: linear-gradient(180deg, #e8dcc8 0%, var(--cream) 55%, #d9cbb3 100%);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
